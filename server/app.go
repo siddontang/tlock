@@ -53,7 +53,7 @@ func (a *App) Lock(tp string, keys []string) {
 
 }
 
-func (a *App) LockTimeout(tp string, keys []string, timeout time.Duration) {
+func (a *App) LockTimeout(tp string, timeout time.Duration, keys []string) {
 
 }
 

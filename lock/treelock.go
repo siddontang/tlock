@@ -4,26 +4,17 @@ import (
 	"time"
 )
 
-type TreeLocker struct {
-}
-
-func (l *TreeLocker) Lock() {
-
-}
-
-func (l *TreeLocker) LockTimeout(timeout time.Duration) bool {
-	return false
-}
-
-func (l *TreeLocker) Unlock() {
-
-}
-
 type TreeLockerGroup struct {
 }
 
-func (g *TreeLockerGroup) GetLocker(paths ...string) Locker {
-	return nil
+func (g *TreeLockerGroup) Lock(paths ...string) {
+}
+
+func (g *TreeLockerGroup) LockTimeout(timeout time.Duration, paths ...string) bool {
+	return false
+}
+
+func (g *TreeLockerGroup) Unlock(paths ...string) {
 }
 
 func NewTreeLockerGroup() *TreeLockerGroup {

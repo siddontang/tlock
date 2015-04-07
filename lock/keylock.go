@@ -1,88 +1,10 @@
 package lock
 
 import (
+	"fmt"
 	"sort"
 	"time"
 )
-
-type KeyLocker struct {
-	keys  []string
-	locks []*refValue
-
-	set *refValueSet
-
-	locked int32
-	ch     chan struct{}
-}
-
-func (g *KeyLockerGroup) newKeyLocker(keys []string) *KeyLocker {
-	// sort keys to avoid dead lock
-	sort.Strings(keys)
-
-	l := new(KeyLocker)
-
-	l.keys = keys
-	l.locks = make([]*refValue, len(l.keys))
-	l.set = g.set
-
-	l.ch = make(chan struct{}, 1)
-	l.ch <- struct{}{}
-
-	return l
-}
-
-func (l *KeyLocker) Lock() {
-	// use a very long timeout
-	b := l.LockTimeout(30 * 24 * 3600 * time.Second)
-	if !b {
-		panic("Wait lock too long, panic")
-	}
-}
-
-func (l *KeyLocker) LockTimeout(timeout time.Duration) bool {
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-
-	select {
-	case <-l.ch:
-	case <-timer.C:
-		return false
-	}
-
-	for i, key := range l.keys {
-		v := l.set.Get(key)
-		ch := v.v.(chan struct{})
-		select {
-		case <-ch:
-			// grap the lock
-			l.locks[i] = v
-		case <-timer.C:
-			l.set.Put(key, v)
-			l.Unlock()
-			return false
-		}
-	}
-	return true
-}
-
-func (l *KeyLocker) Unlock() {
-	for i := len(l.locks) - 1; i >= 0; i-- {
-		v := l.locks[i]
-		if v == nil {
-			continue
-		}
-		ch := v.v.(chan struct{})
-		ch <- struct{}{}
-		l.set.Put(l.keys[i], v)
-		l.locks[i] = nil
-	}
-
-	select {
-	case l.ch <- struct{}{}:
-	default:
-		panic("Not locked, panic")
-	}
-}
 
 type KeyLockerGroup struct {
 	set *refValueSet
@@ -102,6 +24,56 @@ func NewKeyLockerGroup() *KeyLockerGroup {
 	return g
 }
 
-func (g *KeyLockerGroup) GetLocker(keys ...string) Locker {
-	return g.newKeyLocker(keys)
+func (g *KeyLockerGroup) Lock(keys ...string) {
+	// use a very long timeout
+	b := g.LockTimeout(30*24*3600*time.Second, keys...)
+	if !b {
+		panic("Wait lock too long, panic")
+	}
+}
+
+func (g *KeyLockerGroup) LockTimeout(timeout time.Duration, keys ...string) bool {
+	// Sort keys to avoid deadlock
+	sort.Strings(keys)
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	grapKeys := make([]string, 0, len(keys))
+	for _, key := range keys {
+		v := g.set.Get(key)
+		ch := v.v.(chan struct{})
+		select {
+		case <-ch:
+			// grap the lock
+			grapKeys = append(grapKeys, key)
+		case <-timer.C:
+			g.set.Put(key, v)
+			g.Unlock(grapKeys...)
+			return false
+		}
+	}
+	return true
+}
+
+func (g *KeyLockerGroup) Unlock(keys ...string) {
+	// Reverse Sort keys to avoid deadlock
+	sort.Sort(sort.Reverse(sort.StringSlice(keys)))
+
+	for _, key := range keys {
+		v := g.set.RawGet(key)
+
+		if v == nil {
+			panic(fmt.Sprintf("%s is not locked, panic", key))
+		}
+
+		ch := v.v.(chan struct{})
+		select {
+		case ch <- struct{}{}:
+		default:
+			panic(fmt.Sprintf("%s is not locked, panic", key))
+		}
+
+		g.set.Put(key, v)
+	}
 }

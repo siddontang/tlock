@@ -26,15 +26,13 @@ func (s *lcokTestSuite) TestKeyLock(c *C) {
 
 	go func() {
 		defer wg.Done()
-		l := g.GetLocker("a", "b")
-		l.Lock()
-		l.Unlock()
+		g.Lock("a", "b")
+		g.Unlock("a", "b")
 	}()
 
 	time.Sleep(1 * time.Second)
-	l := g.GetLocker("b", "a")
-	l.Lock()
-	l.Unlock()
+	g.Lock("b", "a")
+	g.Unlock("a", "b")
 
 	wg.Wait()
 
@@ -46,60 +44,56 @@ func (s *lcokTestSuite) TestKeyLock(c *C) {
 	go func() {
 		defer wg.Done()
 
-		l := g.GetLocker("a")
-		l.Lock()
+		g.Lock("a")
 
 		time.Sleep(2 * time.Second)
 
-		l.Unlock()
+		g.Unlock("a")
 	}()
 
 	time.Sleep(1 * time.Second)
 
-	l = g.GetLocker("a")
-	b := l.LockTimeout(100 * time.Millisecond)
+	b := g.LockTimeout(100*time.Millisecond, "a")
 	c.Assert(b, Equals, false)
 	wg.Wait()
 
 	c.Assert(g.set.Exists("a"), Equals, false)
 
-	b = l.LockTimeout(100 * time.Millisecond)
+	b = g.LockTimeout(100*time.Millisecond, "a")
 	c.Assert(b, Equals, true)
 
 	c.Assert(g.set.Exists("a"), Equals, true)
 
-	l.Unlock()
+	g.Unlock("a")
 
 	c.Assert(g.set.Exists("a"), Equals, false)
 
 	wg.Add(1)
 
-	l = g.GetLocker("a")
-
 	go func() {
 		defer wg.Done()
 
-		l.Lock()
+		g.Lock("a")
 
 		time.Sleep(2 * time.Second)
 
-		l.Unlock()
+		g.Unlock("a")
 	}()
 
 	time.Sleep(1 * time.Second)
 
-	b = l.LockTimeout(100 * time.Millisecond)
+	b = g.LockTimeout(100*time.Millisecond, "a")
 	c.Assert(b, Equals, false)
 
 	wg.Wait()
 
 	c.Assert(g.set.Exists("a"), Equals, false)
 
-	b = l.LockTimeout(100 * time.Millisecond)
+	b = g.LockTimeout(100*time.Millisecond, "a")
 	c.Assert(b, Equals, true)
 
 	c.Assert(g.set.Exists("a"), Equals, true)
 
-	l.Unlock()
+	g.Unlock("a")
 	c.Assert(g.set.Exists("a"), Equals, false)
 }

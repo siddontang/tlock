@@ -5,14 +5,10 @@ import (
 	"time"
 )
 
-type Locker interface {
-	Lock()
-	LockTimeout(timeout time.Duration) bool
-	Unlock()
-}
-
 type LockerGroup interface {
-	GetLocker(args ...string) Locker
+	Lock(args ...string)
+	LockTimeout(timeout time.Duration, args ...string) bool
+	Unlock(args ...string)
 }
 
 type refValue struct {
@@ -50,6 +46,14 @@ func (s *refValueSet) Get(key string) *refValue {
 		s.set[key] = v
 	}
 
+	return v
+}
+
+func (s *refValueSet) RawGet(key string) *refValue {
+	s.Lock()
+	defer s.Unlock()
+
+	v := s.set[key]
 	return v
 }
 
