@@ -12,12 +12,12 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-type lcokTestSuite struct {
+type lockTestSuite struct {
 }
 
-var _ = Suite(&lcokTestSuite{})
+var _ = Suite(&lockTestSuite{})
 
-func (s *lcokTestSuite) TestKeyLock(c *C) {
+func (s *lockTestSuite) TestKeyLock(c *C) {
 	g := NewKeyLockerGroup()
 
 	var wg sync.WaitGroup

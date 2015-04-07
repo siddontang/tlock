@@ -26,7 +26,7 @@ func NewKeyLockerGroup() *KeyLockerGroup {
 
 func (g *KeyLockerGroup) Lock(keys ...string) {
 	// use a very long timeout
-	b := g.LockTimeout(30*24*3600*time.Second, keys...)
+	b := g.LockTimeout(InfiniteTimeout, keys...)
 	if !b {
 		panic("Wait lock too long, panic")
 	}

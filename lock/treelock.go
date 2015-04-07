@@ -8,6 +8,11 @@ type TreeLockerGroup struct {
 }
 
 func (g *TreeLockerGroup) Lock(paths ...string) {
+	// use a very long timeout
+	b := g.LockTimeout(InfiniteTimeout, paths...)
+	if !b {
+		panic("Wait lock too long, panic")
+	}
 }
 
 func (g *TreeLockerGroup) LockTimeout(timeout time.Duration, paths ...string) bool {

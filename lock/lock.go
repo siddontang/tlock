@@ -11,6 +11,8 @@ type LockerGroup interface {
 	Unlock(args ...string)
 }
 
+var InfiniteTimeout = 30 * 24 * 3600 * time.Second
+
 type refValue struct {
 	ref int
 	v   interface{}
