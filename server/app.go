@@ -20,7 +20,7 @@ type App struct {
 	httpListener net.Listener
 
 	keyLockerGroup  *lock.KeyLockerGroup
-	treeLockerGroup *lock.TreeLockerGroup
+	pathLockerGroup *lock.PathLockerGroup
 }
 
 func (a *App) StartHTTP(addr string) error {
@@ -73,8 +73,8 @@ func (a *App) LockTimeout(tp string, timeout time.Duration, keys []string) (bool
 	switch strings.ToLower(tp) {
 	case "key":
 		return a.keyLockerGroup.LockTimeout(timeout, keys...), nil
-	case "tree":
-		return a.treeLockerGroup.LockTimeout(timeout, keys...), nil
+	case "path":
+		return a.pathLockerGroup.LockTimeout(timeout, keys...), nil
 	default:
 		return false, fmt.Errorf("invalid lock type %s", tp)
 	}
@@ -88,8 +88,8 @@ func (a *App) Unlock(tp string, keys []string) error {
 	switch strings.ToLower(tp) {
 	case "key":
 		a.keyLockerGroup.Unlock(keys...)
-	case "tree":
-		a.treeLockerGroup.Unlock(keys...)
+	case "path":
+		a.pathLockerGroup.Unlock(keys...)
 	default:
 		return fmt.Errorf("invalid lock type %s", tp)
 	}
@@ -111,7 +111,7 @@ func (a *App) newLockHandler() *lockHandler {
 // Lock:   Post/Put /lock?keys=a,b,c&timeout=10&type=key
 // Unlock: Delete   /lock?keys=a,b,c
 // For HTTP, the default and maximum timeout is 60s
-// Lock type supports key only now, the default is key
+// Lock type supports key and path, the default is key
 func (h *lockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST", "PUT":

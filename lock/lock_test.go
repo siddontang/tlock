@@ -84,8 +84,8 @@ func (s *lockTestSuite) TestKeyLock(c *C) {
 	g.Unlock("a")
 }
 
-func (s *lockTestSuite) TestTreeLock(c *C) {
-	g := NewTreeLockerGroup()
+func (s *lockTestSuite) TestPathLock(c *C) {
+	g := NewPathLockerGroup()
 
 	var wg sync.WaitGroup
 

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const defaultTreeSlotSize = 4096
+const defaultPathSlotSize = 4096
 
 type pendingNode struct {
 	path string
@@ -25,7 +25,7 @@ func newPendingNode(path string) *pendingNode {
 	return n
 }
 
-type treeLockerSet struct {
+type pathLockerSet struct {
 	m sync.Mutex
 
 	set *refValueSet
@@ -34,8 +34,8 @@ type treeLockerSet struct {
 	pendingPath *list.List
 }
 
-func newTreeLockerSet() *treeLockerSet {
-	s := new(treeLockerSet)
+func newPathLockerSet() *pathLockerSet {
+	s := new(pathLockerSet)
 	s.pendingPath = list.New()
 
 	f := func(v *refValue) {
@@ -47,7 +47,7 @@ func newTreeLockerSet() *treeLockerSet {
 }
 
 // a/b/c/ return ["a/", "a/b/", "a/b/c/"]
-func (s *treeLockerSet) makeAncestorPaths(path string) []string {
+func (s *pathLockerSet) makeAncestorPaths(path string) []string {
 	items := make([]string, 0, 4)
 
 	pos := 0
@@ -69,7 +69,7 @@ func (s *treeLockerSet) makeAncestorPaths(path string) []string {
 	return items
 }
 
-func (s *treeLockerSet) tryLock(path string) *pendingNode {
+func (s *pathLockerSet) tryLock(path string) *pendingNode {
 	items := s.makeAncestorPaths(path)
 
 	vs := make([]*refValue, 0, len(items))
@@ -109,7 +109,7 @@ func (s *treeLockerSet) tryLock(path string) *pendingNode {
 	}
 }
 
-func (s *treeLockerSet) LockTimeout(path string, t *time.Timer) bool {
+func (s *pathLockerSet) LockTimeout(path string, t *time.Timer) bool {
 	for {
 		n := s.tryLock(path)
 		if n == nil {
@@ -125,13 +125,13 @@ func (s *treeLockerSet) LockTimeout(path string, t *time.Timer) bool {
 	}
 }
 
-func (s *treeLockerSet) addPendingNode(n *pendingNode) {
+func (s *pathLockerSet) addPendingNode(n *pendingNode) {
 	s.pendingLock.Lock()
 	s.pendingPath.PushBack(n)
 	s.pendingLock.Unlock()
 }
 
-func (s *treeLockerSet) noticePendingNode(path string) {
+func (s *pathLockerSet) noticePendingNode(path string) {
 	s.pendingLock.Lock()
 
 	var next *list.Element
@@ -148,13 +148,13 @@ func (s *treeLockerSet) noticePendingNode(path string) {
 	s.pendingLock.Unlock()
 }
 
-func (s *treeLockerSet) Unlock(path string) {
+func (s *pathLockerSet) Unlock(path string) {
 	s.unlock(path)
 
 	s.noticePendingNode(path)
 }
 
-func (s *treeLockerSet) unlock(path string) {
+func (s *pathLockerSet) unlock(path string) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
@@ -173,11 +173,11 @@ func (s *treeLockerSet) unlock(path string) {
 	}
 }
 
-type TreeLockerGroup struct {
-	set []*treeLockerSet
+type PathLockerGroup struct {
+	set []*pathLockerSet
 }
 
-func (g *TreeLockerGroup) Lock(paths ...string) {
+func (g *PathLockerGroup) Lock(paths ...string) {
 	// use a very long timeout
 	b := g.LockTimeout(InfiniteTimeout, paths...)
 	if !b {
@@ -185,7 +185,7 @@ func (g *TreeLockerGroup) Lock(paths ...string) {
 	}
 }
 
-func (g *TreeLockerGroup) LockTimeout(timeout time.Duration, paths ...string) bool {
+func (g *PathLockerGroup) LockTimeout(timeout time.Duration, paths ...string) bool {
 	if len(paths) == 0 {
 		panic("empty paths, panic")
 	}
@@ -209,7 +209,7 @@ func (g *TreeLockerGroup) LockTimeout(timeout time.Duration, paths ...string) bo
 	return true
 }
 
-func (g *TreeLockerGroup) Unlock(paths ...string) {
+func (g *PathLockerGroup) Unlock(paths ...string) {
 	if len(paths) == 0 {
 		return
 	}
@@ -222,13 +222,13 @@ func (g *TreeLockerGroup) Unlock(paths ...string) {
 	}
 }
 
-func (g *TreeLockerGroup) getSet(path string) *treeLockerSet {
+func (g *PathLockerGroup) getSet(path string) *pathLockerSet {
 	base := strings.SplitN(path, "/", 2)
-	index := crc32.ChecksumIEEE([]byte(base[0])) % uint32(defaultTreeSlotSize)
+	index := crc32.ChecksumIEEE([]byte(base[0])) % uint32(defaultPathSlotSize)
 	return g.set[index]
 }
 
-func (g *TreeLockerGroup) canonicalizePath(p string) string {
+func (g *PathLockerGroup) canonicalizePath(p string) string {
 	p = path.Clean(p)
 
 	// remove first, so /a/b/c will be a/b/c
@@ -240,7 +240,7 @@ func (g *TreeLockerGroup) canonicalizePath(p string) string {
 	return p
 }
 
-func (g *TreeLockerGroup) canoicalizePaths(paths ...string) []string {
+func (g *PathLockerGroup) canoicalizePaths(paths ...string) []string {
 	p := make([]string, 0, len(paths))
 
 	for i, path := range paths {
@@ -269,11 +269,11 @@ func (g *TreeLockerGroup) canoicalizePaths(paths ...string) []string {
 	return p
 }
 
-func NewTreeLockerGroup() *TreeLockerGroup {
-	g := new(TreeLockerGroup)
-	g.set = make([]*treeLockerSet, defaultTreeSlotSize)
-	for i := 0; i < defaultTreeSlotSize; i++ {
-		g.set[i] = newTreeLockerSet()
+func NewPathLockerGroup() *PathLockerGroup {
+	g := new(PathLockerGroup)
+	g.set = make([]*pathLockerSet, defaultPathSlotSize)
+	for i := 0; i < defaultPathSlotSize; i++ {
+		g.set[i] = newPathLockerSet()
 	}
 
 	return g
