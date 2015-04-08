@@ -155,21 +155,30 @@ func (s *pathLockerSet) Unlock(path string) {
 }
 
 func (s *pathLockerSet) unlock(path string) {
+	items := s.makeAncestorPaths(path)
+	vs := make([]*refValue, 0, len(items))
+
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	items := s.makeAncestorPaths(path)
-
-	for i := len(items) - 1; i >= 0; i-- {
+	for i := 0; i < len(items); i++ {
 		key := items[i]
 
 		v := s.set.RawGet(key)
 		if v == nil {
 			panic(fmt.Sprintf("%s is not locked, panic", path))
+		} else if i == len(items)-1 && v.v != true {
+			panic(fmt.Sprintf("%s is not locked, panic", path))
+		} else if i != len(items)-1 && v.v == true {
+			panic(fmt.Sprintf("%s ancestor %s is locked, panic", path, items[i]))
 		}
 
+		vs = append(vs, v)
+	}
+
+	for i, v := range vs {
 		v.v = false
-		s.set.Put(key, v)
+		s.set.Put(items[i], v)
 	}
 }
 
