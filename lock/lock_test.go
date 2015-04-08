@@ -36,9 +36,6 @@ func (s *lockTestSuite) TestKeyLock(c *C) {
 
 	wg.Wait()
 
-	c.Assert(g.set.Exists("a"), Equals, false)
-	c.Assert(g.set.Exists("b"), Equals, false)
-
 	wg.Add(1)
 
 	go func() {
@@ -57,16 +54,10 @@ func (s *lockTestSuite) TestKeyLock(c *C) {
 	c.Assert(b, Equals, false)
 	wg.Wait()
 
-	c.Assert(g.set.Exists("a"), Equals, false)
-
 	b = g.LockTimeout(100*time.Millisecond, "a")
 	c.Assert(b, Equals, true)
 
-	c.Assert(g.set.Exists("a"), Equals, true)
-
 	g.Unlock("a")
-
-	c.Assert(g.set.Exists("a"), Equals, false)
 
 	wg.Add(1)
 
@@ -87,13 +78,80 @@ func (s *lockTestSuite) TestKeyLock(c *C) {
 
 	wg.Wait()
 
-	c.Assert(g.set.Exists("a"), Equals, false)
+	b = g.LockTimeout(100*time.Millisecond, "a")
+	c.Assert(b, Equals, true)
+
+	g.Unlock("a")
+}
+
+func (s *lockTestSuite) TestTreeLock(c *C) {
+	g := NewTreeLockerGroup()
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		g.Lock("a/b")
+		g.Unlock("a/b")
+	}()
+
+	time.Sleep(1 * time.Second)
+	g.Lock("a/b")
+	g.Unlock("a/b")
+
+	wg.Wait()
+
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		g.Lock("a")
+
+		time.Sleep(2 * time.Second)
+
+		g.Unlock("a")
+	}()
+
+	time.Sleep(1 * time.Second)
+
+	b := g.LockTimeout(100*time.Millisecond, "a/b")
+	c.Assert(b, Equals, false)
+	wg.Wait()
+
+	b = g.LockTimeout(100*time.Millisecond, "a/b")
+	c.Assert(b, Equals, true)
+
+	g.Unlock("a/b")
+
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		g.Lock("a/b")
+
+		time.Sleep(2 * time.Second)
+
+		g.Unlock("a/b")
+	}()
+
+	time.Sleep(1 * time.Second)
+
+	b = g.LockTimeout(100*time.Millisecond, "a")
+	c.Assert(b, Equals, false)
+
+	wg.Wait()
 
 	b = g.LockTimeout(100*time.Millisecond, "a")
 	c.Assert(b, Equals, true)
 
-	c.Assert(g.set.Exists("a"), Equals, true)
-
 	g.Unlock("a")
-	c.Assert(g.set.Exists("a"), Equals, false)
+
+	g.Lock("a/b/c")
+	g.Lock("a/b/d")
+
+	g.Unlock("a/b/c")
+	g.Unlock("a/b/d")
 }

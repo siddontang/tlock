@@ -74,7 +74,7 @@ func (a *App) LockTimeout(tp string, timeout time.Duration, keys []string) (bool
 	case "key":
 		return a.keyLockerGroup.LockTimeout(timeout, keys...), nil
 	case "tree":
-		return false, fmt.Errorf("tree lock type is not supported now")
+		return a.treeLockerGroup.LockTimeout(timeout, keys...), nil
 	default:
 		return false, fmt.Errorf("invalid lock type %s", tp)
 	}
@@ -89,7 +89,7 @@ func (a *App) Unlock(tp string, keys []string) error {
 	case "key":
 		a.keyLockerGroup.Unlock(keys...)
 	case "tree":
-		return fmt.Errorf("tree lock type is not supported now")
+		a.treeLockerGroup.Unlock(keys...)
 	default:
 		return fmt.Errorf("invalid lock type %s", tp)
 	}

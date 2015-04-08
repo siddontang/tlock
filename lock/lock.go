@@ -1,7 +1,6 @@
 package lock
 
 import (
-	"sync"
 	"time"
 )
 
@@ -19,8 +18,6 @@ type refValue struct {
 }
 
 type refValueSet struct {
-	sync.Mutex
-
 	initFunc func(*refValue)
 	set      map[string]*refValue
 }
@@ -28,16 +25,13 @@ type refValueSet struct {
 func newRefValueSet(initFunc func(*refValue)) *refValueSet {
 	s := new(refValueSet)
 
-	s.set = make(map[string]*refValue, 1024)
+	s.set = make(map[string]*refValue, 16)
 	s.initFunc = initFunc
 
 	return s
 }
 
 func (s *refValueSet) Get(key string) *refValue {
-	s.Lock()
-	defer s.Unlock()
-
 	v, ok := s.set[key]
 	if ok {
 		v.ref++
@@ -52,17 +46,11 @@ func (s *refValueSet) Get(key string) *refValue {
 }
 
 func (s *refValueSet) RawGet(key string) *refValue {
-	s.Lock()
-	defer s.Unlock()
-
 	v := s.set[key]
 	return v
 }
 
 func (s *refValueSet) Put(key string, v *refValue) {
-	s.Lock()
-	defer s.Unlock()
-
 	v.ref--
 	if v.ref <= 0 {
 		delete(s.set, key)
@@ -70,9 +58,6 @@ func (s *refValueSet) Put(key string, v *refValue) {
 }
 
 func (s *refValueSet) Exists(key string) bool {
-	s.Lock()
-	defer s.Unlock()
-
 	_, ok := s.set[key]
 	return ok
 }
