@@ -23,6 +23,15 @@ type App struct {
 	pathLockerGroup *lock.PathLockerGroup
 }
 
+func NewApp() *App {
+	a := new(App)
+
+	a.keyLockerGroup = lock.NewKeyLockerGroup()
+	a.pathLockerGroup = lock.NewPathLockerGroup()
+
+	return a
+}
+
 func (a *App) StartHTTP(addr string) error {
 	a.m.Lock()
 	defer a.m.Unlock()
