@@ -132,20 +132,28 @@ func (s *pathLockerSet) addPendingNode(n *pendingNode) {
 }
 
 func (s *pathLockerSet) noticePendingNode(path string) {
+	noticeNodes := make([]*pendingNode, 0, 8)
 	s.pendingLock.Lock()
 
 	var next *list.Element
 	for e := s.pendingPath.Front(); e != nil; e = next {
-		m := e.Value.(*pendingNode)
+		n := e.Value.(*pendingNode)
 		next = e.Next()
 
-		if strings.Contains(path, m.path) || strings.Contains(m.path, path) {
+		if strings.Contains(path, n.path) || strings.Contains(n.path, path) {
 			s.pendingPath.Remove(e)
-			m.ch <- struct{}{}
+			noticeNodes = append(noticeNodes, n)
 		}
 	}
 
 	s.pendingLock.Unlock()
+
+	for _, n := range noticeNodes {
+		select {
+		case n.ch <- struct{}{}:
+		default:
+		}
+	}
 }
 
 func (s *pathLockerSet) Unlock(path string) {
