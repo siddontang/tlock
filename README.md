@@ -1,6 +1,6 @@
 # TLock
 
-A simple tiny centralized lock service.
+A simple tiny centralized lock service, still in development.
 
 Although there are some existing key lock service, like Zookeeper, Etcd, or even Redis, they don't fit my need. E.g, I want to lock multi keys at same time, not one by one. And I want to support hierachical path lock. 
 
