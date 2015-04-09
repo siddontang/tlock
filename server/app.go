@@ -66,39 +66,47 @@ func (a *App) Close() {
 	a.wg.Wait()
 }
 
-func (a *App) Lock(tp string, keys []string) error {
-	b, err := a.LockTimeout(tp, lock.InfiniteTimeout, keys)
+func (a *App) HTTPAddr() net.Addr {
+	if a.httpListener == nil {
+		return nil
+	} else {
+		return a.httpListener.Addr()
+	}
+}
+
+func (a *App) Lock(tp string, names []string) error {
+	b, err := a.LockTimeout(tp, lock.InfiniteTimeout, names)
 	if !b {
 		panic("Wait lock too long, panic")
 	}
 	return err
 }
 
-func (a *App) LockTimeout(tp string, timeout time.Duration, keys []string) (bool, error) {
-	if len(keys) == 0 {
-		return false, fmt.Errorf("empty lock keys")
+func (a *App) LockTimeout(tp string, timeout time.Duration, names []string) (bool, error) {
+	if len(names) == 0 {
+		return false, fmt.Errorf("empty lock names")
 	}
 
 	switch strings.ToLower(tp) {
 	case "key":
-		return a.keyLockerGroup.LockTimeout(timeout, keys...), nil
+		return a.keyLockerGroup.LockTimeout(timeout, names...), nil
 	case "path":
-		return a.pathLockerGroup.LockTimeout(timeout, keys...), nil
+		return a.pathLockerGroup.LockTimeout(timeout, names...), nil
 	default:
 		return false, fmt.Errorf("invalid lock type %s", tp)
 	}
 }
 
-func (a *App) Unlock(tp string, keys []string) error {
-	if len(keys) == 0 {
-		return fmt.Errorf("empty lock keys")
+func (a *App) Unlock(tp string, names []string) error {
+	if len(names) == 0 {
+		return fmt.Errorf("empty lock names")
 	}
 
 	switch strings.ToLower(tp) {
 	case "key":
-		a.keyLockerGroup.Unlock(keys...)
+		a.keyLockerGroup.Unlock(names...)
 	case "path":
-		a.pathLockerGroup.Unlock(keys...)
+		a.pathLockerGroup.Unlock(names...)
 	default:
 		return fmt.Errorf("invalid lock type %s", tp)
 	}
@@ -117,14 +125,14 @@ func (a *App) newLockHandler() *lockHandler {
 	return h
 }
 
-// Lock:   Post/Put /lock?keys=a,b,c&timeout=10&type=key
-// Unlock: Delete   /lock?keys=a,b,c
+// Lock:   Post/Put /lock?names=a,b,c&timeout=10&type=key
+// Unlock: Delete   /lock?names=a,b,c
 // For HTTP, the default and maximum timeout is 60s
 // Lock type supports key and path, the default is key
 func (h *lockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST", "PUT":
-		keys := strings.Split(r.FormValue("keys"), ",")
+		names := strings.Split(r.FormValue("names"), ",")
 		timeout, _ := strconv.Atoi(r.FormValue("timeout"))
 		if timeout <= 0 || timeout > 60 {
 			timeout = 60
@@ -134,7 +142,7 @@ func (h *lockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			tp = "key"
 		}
 
-		b, err := h.a.LockTimeout(tp, time.Duration(timeout)*time.Second, keys)
+		b, err := h.a.LockTimeout(tp, time.Duration(timeout)*time.Second, names)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
@@ -145,13 +153,13 @@ func (h *lockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}
 	case "DELETE":
-		keys := strings.Split(r.FormValue("keys"), ",")
+		names := strings.Split(r.FormValue("names"), ",")
 		tp := r.FormValue("type")
 		if len(tp) == 0 {
 			tp = "key"
 		}
 
-		err := h.a.Unlock(tp, keys)
+		err := h.a.Unlock(tp, names)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
