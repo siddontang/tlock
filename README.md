@@ -4,7 +4,7 @@ A simple tiny centralized lock service.
 
 Although there are some existing key lock service, like Zookeeper, Etcd, or even Redis, they don't fit my need. E.g, I want to lock multi keys at same time, not one by one. And I want to support hierachical path lock. 
 
-**If you have some good recommendation, please tell me!**
+**If you have some good recommendations, please tell me!**
 
 ## Key Lock
 
