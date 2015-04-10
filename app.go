@@ -1,4 +1,4 @@
-package server
+package tlock
 
 import (
 	"bytes"
@@ -9,8 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/siddontang/tlock/lock"
 )
 
 type App struct {
@@ -20,8 +18,8 @@ type App struct {
 
 	httpListener net.Listener
 
-	keyLockerGroup  *lock.KeyLockerGroup
-	pathLockerGroup *lock.PathLockerGroup
+	keyLockerGroup  *KeyLockerGroup
+	pathLockerGroup *PathLockerGroup
 
 	locksMutex sync.Mutex
 	keyLocks   map[string]time.Time
@@ -31,8 +29,8 @@ type App struct {
 func NewApp() *App {
 	a := new(App)
 
-	a.keyLockerGroup = lock.NewKeyLockerGroup()
-	a.pathLockerGroup = lock.NewPathLockerGroup()
+	a.keyLockerGroup = NewKeyLockerGroup()
+	a.pathLockerGroup = NewPathLockerGroup()
 
 	a.keyLocks = make(map[string]time.Time, 1024)
 	a.pathLocks = make(map[string]time.Time, 1024)
@@ -83,7 +81,7 @@ func (a *App) HTTPAddr() net.Addr {
 }
 
 func (a *App) Lock(tp string, names []string) error {
-	b, err := a.LockTimeout(tp, lock.InfiniteTimeout, names)
+	b, err := a.LockTimeout(tp, InfiniteTimeout, names)
 	if !b {
 		panic("Wait lock too long, panic")
 	}
