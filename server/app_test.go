@@ -36,6 +36,20 @@ func (s *serverTestSuite) TearDownSuite(c *C) {
 	}
 }
 
+func (s *serverTestSuite) getLocks(c *C) string {
+	c.Assert(s.a.httpListener, NotNil)
+	addr := s.a.httpListener.Addr()
+
+	r, err := http.Get(fmt.Sprintf("http://%s/lock", addr))
+	c.Assert(err, IsNil)
+
+	defer r.Body.Close()
+	c.Assert(r.StatusCode, Equals, http.StatusOK)
+	b, err := ioutil.ReadAll(r.Body)
+	c.Assert(err, IsNil)
+	return string(b)
+}
+
 func (s *serverTestSuite) lock(c *C, names string, tp string, timeout int) {
 	c.Assert(s.a.httpListener, NotNil)
 	addr := s.a.httpListener.Addr()
@@ -110,16 +124,35 @@ func (s *serverTestSuite) TestPathLock(c *C) {
 
 	wg.Add(1)
 
+	done := make(chan struct{})
 	go func() {
 		defer wg.Done()
 		s.lock(c, names, tp, 0)
+		done <- struct{}{}
 		time.Sleep(2 * time.Second)
+		done <- struct{}{}
+
 		s.unlock(c, names, tp)
 	}()
 
-	time.Sleep(1 * time.Second)
+	<-done
 	s.lock(c, names, tp, 1)
+	<-done
+
 	s.lock(c, names, tp, 0)
 	s.unlock(c, names, tp)
 	wg.Wait()
+}
+
+func (s *serverTestSuite) TestGetLock(c *C) {
+	names := "a/b,a/c"
+	tp := "path"
+
+	s.lock(c, names, tp, 0)
+	str := s.getLocks(c)
+	c.Assert(strings.Contains(str, names), Equals, true)
+
+	s.unlock(c, names, tp)
+	str = s.getLocks(c)
+	c.Assert(strings.Contains(str, names), Equals, false)
 }
