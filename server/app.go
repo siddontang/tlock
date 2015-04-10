@@ -133,7 +133,14 @@ func (h *lockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST", "PUT":
 		names := strings.Split(r.FormValue("names"), ",")
+		if len(names) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("empty lock names"))
+			return
+		}
+
 		timeout, _ := strconv.Atoi(r.FormValue("timeout"))
+
 		if timeout <= 0 || timeout > 60 {
 			timeout = 60
 		}
