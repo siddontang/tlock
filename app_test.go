@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -50,7 +51,7 @@ func (s *serverTestSuite) getLocks(c *C) string {
 	return string(b)
 }
 
-func (s *serverTestSuite) lock(c *C, names string, tp string, timeout int) {
+func (s *serverTestSuite) lock(c *C, names string, tp string, timeout int) uint64 {
 	c.Assert(s.a.httpListener, NotNil)
 	addr := s.a.httpListener.Addr()
 
@@ -58,20 +59,25 @@ func (s *serverTestSuite) lock(c *C, names string, tp string, timeout int) {
 	c.Assert(err, IsNil)
 
 	defer r.Body.Close()
-	ioutil.ReadAll(r.Body)
+	buf, err := ioutil.ReadAll(r.Body)
+	c.Assert(err, IsNil)
 
 	if timeout == 0 {
 		c.Assert(r.StatusCode, Equals, http.StatusOK)
+		id, err := strconv.ParseUint(string(buf), 10, 64)
+		c.Assert(err, IsNil)
+		return id
 	} else {
 		c.Assert(r.StatusCode, Equals, http.StatusRequestTimeout)
+		return 0
 	}
 }
 
-func (s *serverTestSuite) unlock(c *C, names string, tp string) {
+func (s *serverTestSuite) unlock(c *C, id uint64) {
 	c.Assert(s.a.httpListener, NotNil)
 	addr := s.a.HTTPAddr()
 
-	req, _ := http.NewRequest("DELETE", fmt.Sprintf("http://%s/lock?names=%s&type=%s", addr, url.QueryEscape(names), tp), nil)
+	req, _ := http.NewRequest("DELETE", fmt.Sprintf("http://%s/lock?id=%d", addr, id), nil)
 	r, err := http.DefaultClient.Do(req)
 	c.Assert(err, IsNil)
 
@@ -92,12 +98,12 @@ func (s *serverTestSuite) TestKeyLock(c *C) {
 	go func() {
 		defer wg.Done()
 		time.Sleep(500 * time.Millisecond)
-		s.lock(c, names, tp, 0)
-		s.unlock(c, names, tp)
+		id := s.lock(c, names, tp, 0)
+		s.unlock(c, id)
 	}()
 
-	s.lock(c, names, tp, 0)
-	s.unlock(c, names, tp)
+	id := s.lock(c, names, tp, 0)
+	s.unlock(c, id)
 
 	wg.Wait()
 }
@@ -113,12 +119,12 @@ func (s *serverTestSuite) TestPathLock(c *C) {
 	go func() {
 		defer wg.Done()
 		time.Sleep(500 * time.Millisecond)
-		s.lock(c, names, tp, 0)
-		s.unlock(c, names, tp)
+		id := s.lock(c, names, tp, 0)
+		s.unlock(c, id)
 	}()
 
-	s.lock(c, names, tp, 0)
-	s.unlock(c, names, tp)
+	id := s.lock(c, names, tp, 0)
+	s.unlock(c, id)
 
 	wg.Wait()
 
@@ -127,32 +133,32 @@ func (s *serverTestSuite) TestPathLock(c *C) {
 	done := make(chan struct{})
 	go func() {
 		defer wg.Done()
-		s.lock(c, names, tp, 0)
+		id := s.lock(c, names, tp, 0)
 		done <- struct{}{}
 		time.Sleep(2 * time.Second)
 		done <- struct{}{}
 
-		s.unlock(c, names, tp)
+		s.unlock(c, id)
 	}()
 
 	<-done
-	s.lock(c, names, tp, 1)
+	id = s.lock(c, names, tp, 1)
 	<-done
 
-	s.lock(c, names, tp, 0)
-	s.unlock(c, names, tp)
+	id = s.lock(c, names, tp, 0)
+	s.unlock(c, id)
 	wg.Wait()
 }
 
 func (s *serverTestSuite) TestGetLock(c *C) {
-	names := "a/b,a/c"
-	tp := "path"
+	names := "a/b"
+	tp := "key"
 
-	s.lock(c, names, tp, 0)
+	id := s.lock(c, names, tp, 0)
 	str := s.getLocks(c)
 	c.Assert(strings.Contains(str, names), Equals, true)
 
-	s.unlock(c, names, tp)
+	s.unlock(c, id)
 	str = s.getLocks(c)
 	c.Assert(strings.Contains(str, names), Equals, false)
 }
