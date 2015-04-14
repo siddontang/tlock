@@ -171,12 +171,12 @@ func (s *serverTestSuite) TestRESPLock(c *C) {
 	addr := s.a.RESPAddr()
 	c.Assert(addr, NotNil)
 
-	pool := goredis.NewClient(addr.String(), "")
+	pool := NewRESPClient(addr.String())
 	defer pool.Close()
 
-	c1, err := NewRESPLocker(pool, "key", "a")
+	c1, err := pool.GetLocker("key", "a")
 	c.Assert(err, IsNil)
-	c2, err := NewRESPLocker(pool, "key", "a")
+	c2, err := pool.GetLocker("key", "a")
 	c.Assert(err, IsNil)
 
 	var wg sync.WaitGroup

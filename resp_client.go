@@ -7,6 +7,25 @@ import (
 	"github.com/siddontang/goredis"
 )
 
+type RESPClient struct {
+	c *goredis.Client
+}
+
+func NewRESPClient(addr string) *RESPClient {
+	c := new(RESPClient)
+	c.c = goredis.NewClient(addr, "")
+
+	return c
+}
+
+func (c *RESPClient) GetLocker(tp string, names ...string) (ClientLocker, error) {
+	return c.newRESPLocker(tp, names...)
+}
+
+func (c *RESPClient) Close() {
+	c.c.Close()
+}
+
 type respLocker struct {
 	c     *goredis.Client
 	conn  *goredis.PoolConn
@@ -15,7 +34,7 @@ type respLocker struct {
 	id    []byte
 }
 
-func NewRESPLocker(c *goredis.Client, tp string, names ...string) (ClientLocker, error) {
+func (c *RESPClient) newRESPLocker(tp string, names ...string) (ClientLocker, error) {
 	tp = strings.ToLower(tp)
 	if tp != "key" && tp != "path" {
 		return nil, fmt.Errorf("invalid lock type %s, must key or path", tp)
@@ -25,7 +44,7 @@ func NewRESPLocker(c *goredis.Client, tp string, names ...string) (ClientLocker,
 	}
 
 	l := new(respLocker)
-	l.c = c
+	l.c = c.c
 	l.names = names
 	l.tp = tp
 
