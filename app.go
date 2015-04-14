@@ -337,7 +337,7 @@ func (a *App) parseRESPLock(args [][]byte) (tp string, names []string, timeout t
 		arg := string(args[i])
 		s := strings.ToUpper(arg)
 		if s == "TYPE" && i < len(args) {
-			tp = string(args[i+1])
+			tp = strings.ToLower(string(args[i+1]))
 			i++
 		} else if s == "TIMEOUT" && i < len(args) {
 			var t uint64
@@ -345,7 +345,7 @@ func (a *App) parseRESPLock(args [][]byte) (tp string, names []string, timeout t
 			if err != nil {
 				return
 			}
-			if t > 60 || t == 0 {
+			if t == 0 {
 				t = 60
 			}
 
@@ -399,7 +399,7 @@ func (h *lockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		timeout, _ := strconv.Atoi(r.FormValue("timeout"))
 
-		if timeout <= 0 || timeout > 60 {
+		if timeout <= 0 {
 			timeout = 60
 		}
 		tp := strings.ToLower(r.FormValue("type"))
