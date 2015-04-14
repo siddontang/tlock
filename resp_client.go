@@ -33,7 +33,7 @@ func NewRESPLocker(c *goredis.Client, tp string, names ...string) (ClientLocker,
 }
 
 func (l *respLocker) Lock() error {
-	return l.LockTimeout(60)
+	return l.LockTimeout(3600)
 }
 
 func (l *respLocker) LockTimeout(timeout int) error {
