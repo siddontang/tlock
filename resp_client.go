@@ -36,7 +36,7 @@ type respLocker struct {
 
 func (c *RESPClient) newRESPLocker(tp string, names ...string) (ClientLocker, error) {
 	tp = strings.ToLower(tp)
-	if tp != "key" && tp != "path" {
+	if tp != KeyLockType && tp != PathLockType {
 		return nil, fmt.Errorf("invalid lock type %s, must key or path", tp)
 	}
 	if len(names) == 0 {

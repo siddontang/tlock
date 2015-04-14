@@ -12,6 +12,15 @@ type LockerGroup interface {
 
 var InfiniteTimeout = 30 * 24 * 3600 * time.Second
 
+const (
+	KeyLockType  = "key"
+	PathLockType = "path"
+)
+
+type Client interface {
+	GetLocker(tp string, names ...string) (ClientLocker, error)
+}
+
 type ClientLocker interface {
 	Lock() error
 	// timeout is seconds

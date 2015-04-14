@@ -174,9 +174,9 @@ func (s *serverTestSuite) TestRESPLock(c *C) {
 	pool := NewRESPClient(addr.String())
 	defer pool.Close()
 
-	c1, err := pool.GetLocker("key", "a")
+	c1, err := pool.GetLocker(KeyLockType, "a")
 	c.Assert(err, IsNil)
-	c2, err := pool.GetLocker("key", "a")
+	c2, err := pool.GetLocker(KeyLockType, "a")
 	c.Assert(err, IsNil)
 
 	var wg sync.WaitGroup

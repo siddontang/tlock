@@ -182,9 +182,9 @@ func (a *App) LockTimeout(tp string, timeout time.Duration, names []string) (uin
 	var err error
 	tp = strings.ToLower(tp)
 	switch tp {
-	case "key":
+	case KeyLockType:
 		b, err = a.keyLockerGroup.LockTimeout(timeout, names...), nil
-	case "path":
+	case PathLockType:
 		b, err = a.pathLockerGroup.LockTimeout(timeout, names...), nil
 	default:
 		return 0, fmt.Errorf("invalid lock type %s", tp)
@@ -219,9 +219,9 @@ func (a *App) Unlock(id uint64) error {
 	}
 
 	switch l.tp {
-	case "key":
+	case KeyLockType:
 		a.keyLockerGroup.Unlock(l.names...)
-	case "path":
+	case PathLockType:
 		a.pathLockerGroup.Unlock(l.names...)
 	default:
 		return fmt.Errorf("invalid lock type %s", l.tp)
@@ -240,7 +240,7 @@ func (a *App) dumpLockNames() []byte {
 
 	a.locksMutex.Lock()
 	for _, l := range a.locks {
-		if l.tp == "key" {
+		if l.tp == KeyLockType {
 			keyLocks = append(keyLocks, l)
 		} else {
 			pathLocks = append(pathLocks, l)
@@ -328,7 +328,7 @@ func (a *App) handleRESP(c net.Conn) {
 }
 
 func (a *App) parseRESPLock(args [][]byte) (tp string, names []string, timeout time.Duration, err error) {
-	tp = "key"
+	tp = KeyLockType
 	timeout = 60 * time.Second
 
 	names = make([]string, 0, len(args))
