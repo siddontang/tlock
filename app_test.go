@@ -171,13 +171,13 @@ func (s *serverTestSuite) TestRESPLock(c *C) {
 	addr := s.a.RESPAddr()
 	c.Assert(addr, NotNil)
 
-	c1, err := goredis.Connect(addr.String())
-	c.Assert(addr, NotNil)
-	defer c1.Close()
+	pool := goredis.NewClient(addr.String(), "")
+	defer pool.Close()
 
-	c2, err := goredis.Connect(addr.String())
-	c.Assert(addr, NotNil)
-	defer c2.Close()
+	c1, err := NewRESPLocker(pool, "key", "a")
+	c.Assert(err, IsNil)
+	c2, err := NewRESPLocker(pool, "key", "a")
+	c.Assert(err, IsNil)
 
 	var wg sync.WaitGroup
 
@@ -186,27 +186,27 @@ func (s *serverTestSuite) TestRESPLock(c *C) {
 	done := make(chan struct{})
 	go func() {
 		defer wg.Done()
-		id, err := goredis.Bytes(c2.Do("LOCK", "a", "TYPE", "KEY", "TIMEOUT", 0))
+		err := c2.Lock()
 		c.Assert(err, IsNil)
 
 		done <- struct{}{}
 		time.Sleep(2 * time.Second)
 		done <- struct{}{}
 
-		_, err = c2.Do("UNLOCK", id)
+		err = c2.Unlock()
 		c.Assert(err, IsNil)
 	}()
 
 	<-done
-	_, err = c1.Do("LOCK", "a", "TYPE", "KEY", "TIMEOUT", 1)
+	err = c1.LockTimeout(1)
 	<-done
 
 	c.Assert(err, NotNil)
 	c.Assert(strings.Contains(err.Error(), errLockTimeout.Error()), Equals, true)
 
-	id, err := goredis.Bytes(c1.Do("LOCK", "a", "TYPE", "KEY", "TIMEOUT", 0))
+	err = c1.LockTimeout(0)
 	c.Assert(err, IsNil)
-	_, err = c1.Do("UNLOCK", id)
+	err = c1.Unlock()
 	c.Assert(err, IsNil)
 
 	wg.Wait()
