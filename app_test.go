@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siddontang/goredis"
 	. "gopkg.in/check.v1"
 )
 
@@ -28,6 +29,9 @@ func (s *serverTestSuite) SetUpSuite(c *C) {
 	s.a = NewApp()
 
 	err := s.a.StartHTTP("127.0.0.1:0")
+	c.Assert(err, IsNil)
+
+	err = s.a.StartRESP("127.0.0.1:0")
 	c.Assert(err, IsNil)
 }
 
@@ -161,4 +165,93 @@ func (s *serverTestSuite) TestGetLock(c *C) {
 	s.unlock(c, id)
 	str = s.getLocks(c)
 	c.Assert(strings.Contains(str, names), Equals, false)
+}
+
+func (s *serverTestSuite) TestRESPLock(c *C) {
+	addr := s.a.RESPAddr()
+	c.Assert(addr, NotNil)
+
+	c1, err := goredis.Connect(addr.String())
+	c.Assert(addr, NotNil)
+	defer c1.Close()
+
+	c2, err := goredis.Connect(addr.String())
+	c.Assert(addr, NotNil)
+	defer c2.Close()
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+
+	done := make(chan struct{})
+	go func() {
+		defer wg.Done()
+		id, err := goredis.Bytes(c2.Do("LOCK", "a", "TYPE", "KEY", "TIMEOUT", 0))
+		c.Assert(err, IsNil)
+
+		done <- struct{}{}
+		time.Sleep(2 * time.Second)
+		done <- struct{}{}
+
+		_, err = c2.Do("UNLOCK", id)
+		c.Assert(err, IsNil)
+	}()
+
+	<-done
+	_, err = c1.Do("LOCK", "a", "TYPE", "KEY", "TIMEOUT", 1)
+	<-done
+
+	c.Assert(err, NotNil)
+	c.Assert(strings.Contains(err.Error(), errLockTimeout.Error()), Equals, true)
+
+	id, err := goredis.Bytes(c1.Do("LOCK", "a", "TYPE", "KEY", "TIMEOUT", 0))
+	c.Assert(err, IsNil)
+	_, err = c1.Do("UNLOCK", id)
+	c.Assert(err, IsNil)
+
+	wg.Wait()
+}
+
+func (s *serverTestSuite) TestRESPLockClose(c *C) {
+	addr := s.a.RESPAddr()
+	c.Assert(addr, NotNil)
+
+	c1, err := goredis.Connect(addr.String())
+	c.Assert(addr, NotNil)
+	defer c1.Close()
+
+	c2, err := goredis.Connect(addr.String())
+	c.Assert(addr, NotNil)
+	defer c2.Close()
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+
+	done := make(chan struct{})
+	go func() {
+		defer wg.Done()
+		_, err := goredis.Bytes(c2.Do("LOCK", "a", "TYPE", "KEY", "TIMEOUT", 0))
+		c.Assert(err, IsNil)
+
+		done <- struct{}{}
+		time.Sleep(2 * time.Second)
+		done <- struct{}{}
+
+		c2.Close()
+	}()
+
+	<-done
+	_, err = c1.Do("LOCK", "a", "TYPE", "KEY", "TIMEOUT", 1)
+	<-done
+
+	c.Assert(err, NotNil)
+	c.Assert(strings.Contains(err.Error(), errLockTimeout.Error()), Equals, true)
+
+	id, err := goredis.Bytes(c1.Do("LOCK", "a", "TYPE", "KEY", "TIMEOUT", 0))
+	c.Assert(err, IsNil)
+	_, err = c1.Do("UNLOCK", id)
+	c.Assert(err, IsNil)
+
+	wg.Wait()
 }
