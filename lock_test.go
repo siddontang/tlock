@@ -150,3 +150,14 @@ func (s *lockTestSuite) TestPathLock(c *C) {
 	g.Unlock("a/b/c")
 	g.Unlock("a/b/d")
 }
+
+func (s *lockTestSuite) TestDuplicatedNames(c *C) {
+	g1 := NewKeyLockerGroup()
+
+	g1.Lock("a", "a")
+	g1.Unlock("a", "a")
+
+	g2 := NewPathLockerGroup()
+	g2.Lock("a/b/c", "a/b/c")
+	g2.Unlock("a/b/c", "a/b/c")
+}

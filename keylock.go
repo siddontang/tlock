@@ -37,10 +37,31 @@ func (g *KeyLockerGroup) Lock(keys ...string) {
 	}
 }
 
+func removeDuplicatedItems(keys ...string) []string {
+	if len(keys) <= 1 {
+		return keys
+	}
+
+	m := make(map[string]struct{}, len(keys))
+
+	p := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if _, ok := m[key]; !ok {
+			m[key] = struct{}{}
+			p = append(p, key)
+		}
+	}
+
+	return p
+}
+
 func (g *KeyLockerGroup) LockTimeout(timeout time.Duration, keys ...string) bool {
 	if len(keys) == 0 {
 		panic("empty keys, panic")
 	}
+
+	// remove duplicated items
+	keys = removeDuplicatedItems(keys...)
 
 	// Sort keys to avoid deadlock
 	sort.Strings(keys)
@@ -69,6 +90,9 @@ func (g *KeyLockerGroup) Unlock(keys ...string) {
 	if len(keys) == 0 {
 		return
 	}
+
+	// remove duplicated items
+	keys = removeDuplicatedItems(keys...)
 
 	// Reverse Sort keys to avoid deadlock
 	sort.Sort(sort.Reverse(sort.StringSlice(keys)))

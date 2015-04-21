@@ -148,8 +148,6 @@ func (g *PathLockerGroup) canonicalizePath(p string) string {
 }
 
 func (g *PathLockerGroup) canoicalizePaths(paths ...string) []string {
-	p := make([]string, 0, len(paths))
-
 	for i, path := range paths {
 		paths[i] = g.canonicalizePath(path)
 		if paths[i] == "/" {
@@ -157,20 +155,30 @@ func (g *PathLockerGroup) canoicalizePaths(paths ...string) []string {
 		}
 	}
 
+	if len(paths) <= 1 {
+		return paths
+	}
+
+	p := make([]string, 0, len(paths))
+
 	sort.Strings(paths)
 
 	p = append(p, paths[0])
 
 	for i := 1; i < len(paths); i++ {
+		skipped := false
 		for j := 0; j < len(p); j++ {
 			if strings.Contains(paths[i], p[j]) {
 				// if we want to lock a/b and a/b/c at same time, we only
 				// need to lock the parent path a/b
+				skipped = true
 				break
 			}
 		}
 
-		p = append(p, paths[i])
+		if !skipped {
+			p = append(p, paths[i])
+		}
 	}
 
 	return p
